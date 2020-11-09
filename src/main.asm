@@ -543,32 +543,12 @@ posicionaCursor:
 	CALL delay		
 	RET
 
-retornaCursor:
-	CLR RS	
-	CLR P1.7		 
-	CLR P1.6		 
-	CLR P1.5		 
-	CLR P1.4		
-
-	SETB EN		 
-	CLR EN		
-
-	CLR P1.7		 
-	CLR P1.6		 
-	SETB P1.5		 
-	SETB P1.4	
-
-	SETB EN		 
-	CLR EN		
-
-	CALL delay	
-	RET
-
 clearDisplay:
 	MOV R0, #54H 
 	CALL CLEAR_MEMORY_ROW
 	MOV 56h,	#6FH
-	MOV 57h,	#7FH	
+	MOV 57h,	#7FH
+	CALL SET_P3
 	CLR P3.0
 	MOV 51H, 4EH
 	MOV 50H, 4FH
@@ -629,6 +609,19 @@ SET_OPERATIONS:
 	CLR P2.7
 
 	RET
+
+SET_P3:
+	SETB P3.0
+	SETB P3.1
+	SETB P3.2
+	SETB P3.3
+	SETB P3.4
+	SETB P3.5
+	SETB P3.6
+	SETB P3.7	
+
+	RET
+	
 
 INITIALIZE_CHARACTERS:
 	; put data in RAM
