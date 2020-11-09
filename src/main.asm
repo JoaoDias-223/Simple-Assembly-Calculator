@@ -52,21 +52,25 @@ MAIN:
 
 ADDITION:
 	SETB P2.7
+	CLR P3.1
 	MOV 5AH, #01H
 	RET
 
 SUBTRACTION:
 	SETB P2.7
+	CLR P3.2
 	MOV 5AH, #02H
 	RET
 
 PRODUCT:
 	SETB P2.7
+	CLR P3.3
 	MOV 5AH, #03H
 	RET
 
 DIVISION:
 	SETB P2.7
+	CLR P3.4
 	MOV 5AH, #04H
 	RET	
 
@@ -125,30 +129,28 @@ leituraTeclado:
 	MOV P0, #0FFh	
 	CLR P0.0			; clear row0
 	CALL colScan		; call column-scan subroutine
-	JB F0, finish		; | if F0 is set, jump to end of program 
-						; | (because the pressed key was found and its number is in  R0)
+	JB F0, finish	
 	; scan row1
 	SETB P0.0			; set row0
 	CLR P0.1			; clear row1
 	CALL colScan		; call column-scan subroutine
-	JB F0, finish		; | if F0 is set, jump to end of program 
-						; | (because the pressed key was found and its number is in  R0)
+	JB F0, finish	
+					
 	; scan row2
 	SETB P0.1			; set row1
 	CLR P0.2			; clear row2
 	CALL colScan		; call column-scan subroutine
-	JB F0, finish		; | if F0 is set, jump to end of program 
-						; | (because the pressed key was found and its number is in  R0)
+	JB F0, finish	
+					
 	; scan row3
 	SETB P0.2			; set row2
 	CLR P0.3			; clear row3
 	CALL colScan		; call column-scan subroutine
-	JB F0, finish		; | if F0 is set, jump to end of program 
-						; | (because the pressed key was found and its number is in  R0)
+	JB F0, finish		  
+
 finish:
 	RET
 
-; column-scan subroutine
 colScan:
 	JNB P0.4, gotKey	; if col0 is cleared - key found
 	INC R0				; otherwise move to next key
@@ -173,7 +175,95 @@ VALIDACAO_DO_CHARACTER:
 EQUAL_OP:
 	CLR F0
 	CLR P3.0
+	ACALL DO_OP
+	;LCALL clearDisplay
 	LJMP ROTINA
+
+DO_OP:
+	MOV A, R0
+	MOV R6, A
+	MOV A, R1
+	MOV R7, A
+	
+	MOV R0, 18H
+	MOV R1, 19H
+	MOV R4, #00H
+	MOV A, 54H
+	MOV r5, 55H
+
+	CJNE A, 55H, NUMEROS_DIFERENTES
+	JNB P3.1, ADDITION_OP
+	JNB P3.2, SUBTRACTION_OP
+	MOV A, R6
+	MOV R0, A
+	MOV A, R7
+	MOV R1, A
+
+NUMEROS_DIFERENTES:
+	JC PRIMEIRO_MENOR
+	JNC PRIMEIRO_MAIOR_OU_IGUAL
+	RET
+
+PRIMEIRO_MENOR:
+	MOV R5, 55H
+
+PRIMEIRO_MAIOR_OU_IGUAL:
+	MOV R5, 54H
+
+ADDITION_OP:
+	MOV A, @R0	;first digit
+	ADD A, @R1	;second digit
+	ADD A, R4	;carry from previous op
+
+	MOV B, #0AH
+	DIV AB
+	
+	MOV @R0, B
+	MOV R4, A
+	
+	DEC R0
+	DEC R1
+
+	DJNZ R5, ADDITION_OP
+	
+	CJNE R4, #00H, ADD_CARRY
+	
+	RET
+
+ADD_CARRY:
+	MOV A, R4
+	MOV @R0, A
+	RET
+
+SUBTRACTION_OP:
+	MOV A, @R0		;first digit
+	SUBB A, @R1	;second digit
+
+	JC CHANGE_ORDER
+	
+	MOV @R0, A
+	
+	DEC R0
+	DEC R1
+
+	DJNZ R5, ADDITION_OP
+	
+	CJNE R4, #00H, ADD_CARRY
+
+	RET
+
+CHANGE_ORDER:
+	MOV A, @R0
+	ADD A, #0AH
+	SUBB A, @R1
+	
+	MOV B, A
+	MOV A, R0
+	MOV R7, A
+
+		
+
+	CLR C
 
 CHARACTER_IS_NUM:
 	CLR C
@@ -198,7 +288,6 @@ GUARDA_NUM1:
 	INC 54H
 	MOV 58H, 54H
 	MOV @R0, A
-;	DEC R0
 
 	DEC 56H
 
@@ -218,7 +307,6 @@ GUARDA_NUM2:
 	INC 55H
 	MOV 59H, 55H
 	MOV @R1, A
-;	DEC R1
 
 	DEC 57H
 
@@ -227,193 +315,181 @@ GUARDA_NUM2:
 
 	RET
 
-
-; initialise the display
-; see instruction set for details
 lcd_init:
 
-	CLR RS		; clear RS - indicates that instructions are being sent to the module
+	CLR RS	
 
-; function set	
-	CLR P1.7		; |
-	CLR P1.6		; |
-	SETB P1.5		; |
-	CLR P1.4		; | high nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	SETB P1.5		 
+	CLR P1.4	
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	CALL delay		; wait for BF to clear	
-					; function set sent for first time - tells module to go into 4-bit mode
-; Why is function set high nibble sent twice? See 4-bit operation on pages 39 and 42 of HD44780.pdf.
+	CALL delay		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
-					; same function set high nibble sent a second time
+	SETB EN		 
+	CLR EN		
 
-	SETB P1.7		; low nibble set (only P1.7 needed to be changed)
+	SETB P1.7	
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
-				; function set low nibble sent
-	CALL delay		; wait for BF to clear
+	SETB EN		
+	CLR EN		
 
+	CALL delay		
 
-; entry mode set
-; set to increment with no shift
-	CLR P1.7		; |
-	CLR P1.6		; |
-	CLR P1.5		; |
-	CLR P1.4		; | high nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	CLR P1.5		 
+	CLR P1.4		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	SETB P1.6		; |
-	SETB P1.5		; |low nibble set
+	SETB P1.6		 
+	SETB P1.5	
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		
+	CLR EN		
 
-	CALL delay		; wait for BF to clear
+	CALL delay	
 
+	CLR P1.7		
+	CLR P1.6		
+	CLR P1.5		
+	CLR P1.4		
 
-; display on/off control
-; the display is turned on, the cursor is turned on and blinking is turned on
-	CLR P1.7		; |
-	CLR P1.6		; |
-	CLR P1.5		; |
-	CLR P1.4		; | high nibble set
+	SETB EN		 
+	CLR EN		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB P1.7		 
+	SETB P1.6		 
+	SETB P1.5		 
+	SETB P1.4	
 
-	SETB P1.7		; |
-	SETB P1.6		; |
-	SETB P1.5		; |
-	SETB P1.4		; | low nibble set
+	SETB EN		 
+	CLR EN		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
-
-	CALL delay		; wait for BF to clear
+	CALL delay	
 	RET
 
 
 sendCharacter:
-	SETB RS  		; setb RS - indicates that data is being sent to module
-	MOV C, ACC.7		; |
-	MOV P1.7, C			; |
-	MOV C, ACC.6		; |
-	MOV P1.6, C			; |
-	MOV C, ACC.5		; |
-	MOV P1.5, C			; |
-	MOV C, ACC.4		; |
-	MOV P1.4, C			; | high nibble set
+	SETB RS  	
+	MOV C, ACC.7
+	MOV P1.7, C	
+	MOV C, ACC.6	
+	MOV P1.6, C			 
+	MOV C, ACC.5		 
+	MOV P1.5, C			 
+	MOV C, ACC.4		 
+	MOV P1.4, C	
 
-	SETB EN			; |
-	CLR EN			; | negative edge on E
+	SETB EN			 
+	CLR EN			
 
-	MOV C, ACC.3		; |
-	MOV P1.7, C			; |
-	MOV C, ACC.2		; |
-	MOV P1.6, C			; |
-	MOV C, ACC.1		; |
-	MOV P1.5, C			; |
-	MOV C, ACC.0		; |
-	MOV P1.4, C			; | low nibble set
+	MOV C, ACC.3		 
+	MOV P1.7, C			 
+	MOV C, ACC.2		 
+	MOV P1.6, C			 
+	MOV C, ACC.1		 
+	MOV P1.5, C			 
+	MOV C, ACC.0		 
+	MOV P1.4, C	
 
-	SETB EN			; |
-	CLR EN			; | negative edge on E
+	SETB EN			 
+	CLR EN			
 
-	CALL delay			; wait for BF to clear
-	CALL delay			; wait for BF to clear
+	CALL delay		
+	CALL delay		
 	RET
 
-;Posiciona o cursor na linha e coluna desejada.
-;Escreva no Acumulador o valor de endereço da linha e coluna.
 ;|--------------------------------------------------------------------------------------|
 ;|linha 1 | 00 | 01 | 02 | 03 | 04 |05 | 06 | 07 | 08 | 09 |0A | 0B | 0C | 0D | 0E | 0F |
 ;|linha 2 | 40 | 41 | 42 | 43 | 44 |45 | 46 | 47 | 48 | 49 |4A | 4B | 4C | 4D | 4E | 4F |
 ;|--------------------------------------------------------------------------------------|
 posicionaCursor:
 	CLR RS	
-	SETB P1.7		    ; |
-	MOV C, ACC.6		; |
-	MOV P1.6, C			; |
-	MOV C, ACC.5		; |
-	MOV P1.5, C			; |
-	MOV C, ACC.4		; |
-	MOV P1.4, C			; | high nibble set
+	SETB P1.7		     
+	MOV C, ACC.6		 
+	MOV P1.6, C			 
+	MOV C, ACC.5		 
+	MOV P1.5, C			 
+	MOV C, ACC.4		 
+	MOV P1.4, C			
 
-	SETB EN			; |
-	CLR EN			; | negative edge on E
+	SETB EN			 
+	CLR EN			
 
-	MOV C, ACC.3		; |
-	MOV P1.7, C			; |
-	MOV C, ACC.2		; |
-	MOV P1.6, C			; |
-	MOV C, ACC.1		; |
-	MOV P1.5, C			; |
-	MOV C, ACC.0		; |
-	MOV P1.4, C			; | low nibble set
+	MOV C, ACC.3		 
+	MOV P1.7, C			 
+	MOV C, ACC.2		 
+	MOV P1.6, C			 
+	MOV C, ACC.1		 
+	MOV P1.5, C			 
+	MOV C, ACC.0		 
+	MOV P1.4, C	
 
-	SETB EN			; |
-	CLR EN			; | negative edge on E
+	SETB EN			 
+	CLR EN			
 	
-	CALL delay			; wait for BF to clear
-	CALL delay			; wait for BF to clear
+	CALL delay		
+	CALL delay		
 	RET
 
-
-;Retorna o cursor para primeira posição sem limpar o display
 retornaCursor:
 	CLR RS	
-	CLR P1.7		; |
-	CLR P1.6		; |
-	CLR P1.5		; |
-	CLR P1.4		; | high nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	CLR P1.5		 
+	CLR P1.4		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	CLR P1.7		; |
-	CLR P1.6		; |
-	SETB P1.5		; |
-	SETB P1.4		; | low nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	SETB P1.5		 
+	SETB P1.4	
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	CALL delay		; wait for BF to clear
+	CALL delay	
 	RET
 
-
-;Limpa o display
 clearDisplay:
+	MOV R0, #60H 
+	ACALL CLEAR_MEMORY_ROW
 	CLR P3.0
 	MOV 51H, 4EH
 	MOV 50H, 4FH
 	CLR RS	
-	CLR P1.7		; |
-	CLR P1.6		; |
-	CLR P1.5		; |
-	CLR P1.4		; | high nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	CLR P1.5		 
+	CLR P1.4		
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	CLR P1.7		; |
-	CLR P1.6		; |
-	CLR P1.5		; |
-	SETB P1.4		; | low nibble set
+	CLR P1.7		 
+	CLR P1.6		 
+	CLR P1.5		 
+	SETB P1.4	
 
-	SETB EN		; |
-	CLR EN		; | negative edge on E
+	SETB EN		 
+	CLR EN		
 
-	CALL delay		; wait for BF to clear
+	CALL delay	
 	RET
 
+CLEAR_MEMORY_ROW:
+	MOV @R0, #00H
+	INC R0
+	CJNE R0, #80H, CLEAR_MEMORY_ROW
+	RET
 
 delay:
 	MOV R7, #50
@@ -467,8 +543,8 @@ INITIALIZE_CHARACTERS:
 INITIALIZE_POINTERS:
 	;LCD Cursor Position
 	MOV 4EH,	#01h 	;backup first line
-	MOV 4FH,	#40h 	;backup second line
-	MOV 50H, 	#40H	;position second line
+	MOV 4FH,	#41h 	;backup second line
+	MOV 50H, 	#41H	;position second line
 	MOV 51H,	#01h	;position first line
 	MOV 52H,	#6FH	;Backup position of the start of the first number
 	MOV 53H,	#7FH	;Backup position of the start of the second number
@@ -494,14 +570,21 @@ INITIALIZE_POINTERS:
 
 SORT_FIRST_NUMBER_START:
 	MOV B, R0
+	MOV R4, B
+	MOV B, R1
 	MOV R5, B
 	MOV R6, A
+
 	MOV A, 58H
 	JZ FINISH2
 	ACALL SORT_FIRST_NUMBER
-	MOV B, R5
+
+	MOV B, R4
 	MOV R0, B
+	MOV B, R5
+	MOV R1, B
 	MOV A, R6
+
 	RET
 
 SORT_FIRST_NUMBER:
@@ -513,18 +596,26 @@ SORT_FIRST_NUMBER:
 	MOV A, @R1
 	MOV @R0, A
 	DJNZ 58H, SORT_FIRST_NUMBER
+
 	RET
 
 SORT_SECOND_NUMBER_START:
 	MOV B, R0
+	MOV R4, B
+	MOV B, R1
 	MOV R5, B
 	MOV R6, A
+
 	MOV A, 59H
 	JZ FINISH2
 	ACALL SORT_SECOND_NUMBER
-	MOV B, R5
+
+	MOV B, R4
 	MOV R0, B
+	MOV B, R5
+	MOV R1, B
 	MOV A, R6
+
 	RET
 
 SORT_SECOND_NUMBER:
@@ -536,11 +627,14 @@ SORT_SECOND_NUMBER:
 	MOV A, @R1
 	MOV @R0, A
 	DJNZ 59H, SORT_SECOND_NUMBER
+
 	RET
 
 FINISH2:
-	MOV B, R5
+	MOV B, R4
 	MOV R0, B
+	MOV B, R5
+	MOV R1, B
 	MOV A, R6
+
 	RET
-	
