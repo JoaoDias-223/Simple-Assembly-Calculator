@@ -1,36 +1,3 @@
-; When a key is pressed the key number
-; is placed in R0.
-
-; For this program, the keys are numbered
-; as:
-
-;	+----+----+----+
-;	| 11 | 10 |  9 |	row3
-;	+----+----+----+
-;	|  8 |  7 |  6 |	row2
-;	+----+----|----+
-;	|  5 |  4 |  3 |	row1
-;	+----+----+----+
-;	|  2 |  1 |  0 |	row0
-;	+----+----+----+
-;	 col2 col1 col0
-
-; The pressed key number will be stored in
-; R0. Therefore, R0 is initially cleared.
-; Each key is scanned, and if it is not
-; pressed R0 is incremented. In that way,
-; when the pressed key is found, R0 will
-; contain the key's number.
-
-; The general purpose flag, F0, is used
-; by the column-scan subroutine to indicate
-; whether or not a pressed key was found
-; in that column.
-; If, after returning from colScan, F0 is
-; set, this means the key was found.
-
-
-; --- Mapeamento de Hardware (8051) ---
     RS      equ     P1.3    ;Reg Select ligado em P1.3
     EN      equ     P1.2    ;Enable ligado em P1.2
 
